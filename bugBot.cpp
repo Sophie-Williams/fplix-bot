@@ -1,5 +1,5 @@
 
-// v1.2.9
+// v1.4.2
 
 #include <map>
 #include <set>
@@ -29,6 +29,7 @@ struct Position {
     int x, y;
 };
 
+const int oo = 1000000;
 const int nRows = 20;
 const int nColumns = 30;
 const int Threshold = 0;
@@ -57,9 +58,11 @@ vector<Position> exDestination;
 
 int *perm;
 
+bool isInsideBoard(int x, int y);
 semanticMoves moveBeforeGoOutTo(int u, int v);
 semanticMoves otherStrategyMove();
 semanticMoves greedyMove();
+bool isStableCell(int x, int y);
 
 int f[nRows + 5][nColumns + 5];
 
@@ -175,6 +178,7 @@ void checkReachabilityCurrentDestination() {
         }
     }
 
+    
     // not reachable by stable move
     currentDestination = {-1, -1};
     exDestination.clear();
@@ -371,39 +375,33 @@ semanticMoves moveBeforeGoOutTo(int u, int v) {
 
 semanticMoves greedyMove() {
     
-    DEBUG(currentDestination.x);
-    DEBUG(currentDestination.y);
 
 
-    int minDistance = 10000000;
+    int minDistance = oo;
     int minX = 0;
     int minY = 0;
     int nextVal;
     perm = getPerm();
 
-
     for (int i = 0; i <= 3; i++) {
         int uNext = curRow + dX[perm[i]];
         int vNext = curCol + dY[perm[i]];
-//        if (!isStableCell(uNext, vNext)) continue;
+        //        if (!isStableCell(uNext, vNext)) continue;
 
         semanticMoves move = static_cast<semanticMoves>(perm[i]);
-        if (isThisMoveValid(move, nextVal) && isStableCell(uNext, vNext)) {
-//            int distance = abs(uNext - currentDestination.x) + abs(vNext - currentDestination.y);
-            int distance = stableDistance({uNext, vNext}, currentDestination);
-//            DEBUG(distance);
-//            DEBUG(uNext);
-//            DEBUG(vNext);
-            if (distance < minDistance) {
-                minDistance = distance;
-                minX = uNext;
-                minY = vNext;
-            }
+        if (isThisMoveValid(move, nextVal)) {
+            //            int distance = abs(uNext - currentDestination.x) + abs(vNext - currentDestination.y);
+            if (isStableCell(uNext, vNext) || (uNext == currentDestination.x && vNext == currentDestination.y)) {
+                int distance = stableDistance({uNext, vNext}, currentDestination);
+                //            DEBUG(distance);
+                //            DEBUG(uNext);
+                //            DEBUG(vNext);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    minX = uNext;
+                    minY = vNext;
+                }
 
-            if (distance == minDistance && isStableCell(uNext, vNext) && !isStableCell(minX, minY)) {
-                minDistance = distance;
-                minX = uNext;
-                minY = vNext;
             }
         }
     }
@@ -414,63 +412,43 @@ semanticMoves greedyMove() {
 //    DEBUG(minDistance);
 
     int cnt = 0;
-    if (minDistance < stableDistance({curRow, curCol}, currentDestination)) {
+    if (minDistance < oo) {
 
         if (minX == currentDestination.x && minY == currentDestination.y) {
             return moveBeforeGoOutTo(minX, minY);
         }
 
         perm = getPerm();
+        for (int i = 0; i < 4; i++) {
+            int uNext = curRow + dX[perm[i]];
+            int vNext = curCol + dY[perm[i]];
+            //        if (!isStableCell(uNext, vNext)) continue;
 
-//        pr0(perm, 4);
-//        if (!isstablecell(minx, miny)) {
-//            bool ok = false;
-//            for (int k = 0; k <= 3; k++) {
-//                int unext = currow + dx[perm[k]];
-//                int vnext = curcol + dy[perm[k]];
-//
-//                if (!isstablecell(unext, vnext)) continue;
-//                semanticmoves move = static_cast<semanticmoves>(perm[k]);
-//                if (isthismovevalid(move, nextval)) {
-//                    if (move != lastmove) {
-//                        return move;
-//                    } else {
-//                        ok = true;
-//                    }
-//                }
-//            }
-//            if (ok) {
-//                return static_cast<semanticMoves>(lastMove);
-//            }
-//        }
+            semanticMoves move = static_cast<semanticMoves>(perm[i]);
+            if (isThisMoveValid(move, nextVal) && isStableCell(uNext, vNext)) {
+                //            int distance = abs(uNext - currentDestination.x) + abs(vNext - currentDestination.y);
+                int distance = stableDistance({uNext, vNext}, currentDestination);
+                if (distance == minDistance) {
+                    return fromPosition(uNext, vNext);
+                }
 
+            }
+        }
 
         return fromPosition(minX, minY);
     } else {
-//        perm = getPerm();
-//
-//        for (int i = 0; i <= 3; i++) {
-//            int uNext = curRow + dX[perm[i]];
-//            int vNext = curCol + dY[perm[i]];
-//
-//            if (!isStableCell(uNext, vNext)) continue;
-//
-//            semanticMoves move = static_cast<semanticMoves>(perm[i]);
-//            if (isThisMoveValid(move, nextVal)) {
-//                int distance = abs(uNext - currentDestination.x) + abs(vNext - currentDestination.y);
-//                if (distance == minDistance) {
-//                    if (move != lastMove) {
-//                        return move;
-//                    }
-//                }
-//            }
-//        }
-//        return fromPosition(minX, minY);
-        if (minDistance == 10000000) {
-            // no invalid stable 
-        } else {
-            // valid but does not decrease the stable distance
-            return fromPosition(minX, minY);
+        currentDestination = {-1, -1};
+        exDestination.clear();
+        perm = getPerm();
+
+        for (int i = 0; i < 4; i++) {
+            int uNext = curRow + dX[perm[i]];
+            int vNext = curCol + dY[perm[i]];
+
+            semanticMoves move = static_cast<semanticMoves>(perm[i]);
+            if (isThisMoveValid(move, nextVal)) {
+                return move;
+            }
         }
     }
 
@@ -853,8 +831,11 @@ semanticMoves safeStrategyMove() {
 
         // ensure reachable
         if (currentDestination.x != -1) {
+//                    cout << "den day" << endl;
             return greedyMove();
         }
+
+
         return safeStrategyFromStable();
     } else {
 
@@ -889,7 +870,7 @@ void makeBestMove(){
 
 int main() {
     srand(time(NULL));
-    freopen("bug.txt", "r", stdin);
+//    freopen("bug.txt", "r", stdin);
     int tempRow, tempCol;
     char temp;
 
@@ -934,8 +915,8 @@ int main() {
             }
             // printBoard();
 
-            lastMove = RIGHT;
-//            currentDestination = {4, 22};
+//            lastMove = RIGHT;
+//            currentDestination = {5, 15};
 //            exDestination.push_back({8, 13});
             makeBestMove();
 //            DEBUG(exDestination.size());
