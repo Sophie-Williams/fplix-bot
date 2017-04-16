@@ -102,7 +102,7 @@ int stableDistance(Position inner, Position outter) {
     // constraint: outter is adjacent to stable area
     // inner is in stable area
     // return the minimum path on stable area from inner to outter
-
+    if (inner.x == outter.x && inner.y == outter.y) return 0;
 
     q = queue< pair<int, int> >();
     memset(visited, false, sizeof(visited));
@@ -388,8 +388,9 @@ semanticMoves greedyMove() {
 //        if (!isStableCell(uNext, vNext)) continue;
 
         semanticMoves move = static_cast<semanticMoves>(perm[i]);
-        if (isThisMoveValid(move, nextVal)) {
-            int distance = abs(uNext - currentDestination.x) + abs(vNext - currentDestination.y);
+        if (isThisMoveValid(move, nextVal) && isStableCell(uNext, vNext)) {
+//            int distance = abs(uNext - currentDestination.x) + abs(vNext - currentDestination.y);
+            int distance = stableDistance({uNext, vNext}, currentDestination);
 //            DEBUG(distance);
 //            DEBUG(uNext);
 //            DEBUG(vNext);
@@ -413,7 +414,7 @@ semanticMoves greedyMove() {
 //    DEBUG(minDistance);
 
     int cnt = 0;
-    if (minDistance < (abs(curRow - currentDestination.x) + abs(curCol - currentDestination.y))) {
+    if (minDistance < stableDistance({curRow, curCol}, currentDestination)) {
 
         if (minX == currentDestination.x && minY == currentDestination.y) {
             return moveBeforeGoOutTo(minX, minY);
@@ -421,50 +422,56 @@ semanticMoves greedyMove() {
 
         perm = getPerm();
 
-//        PR0(perm, 4);
-        if (!isStableCell(minX, minY)) {
-            bool ok = false;
-            for (int k = 0; k <= 3; k++) {
-                int uNext = curRow + dX[perm[k]];
-                int vNext = curCol + dY[perm[k]];
-
-                if (!isStableCell(uNext, vNext)) continue;
-                semanticMoves move = static_cast<semanticMoves>(perm[k]);
-                if (isThisMoveValid(move, nextVal)) {
-                    if (move != lastMove) {
-                        return move;
-                    } else {
-                        ok = true;
-                    }
-                }
-            }
-            if (ok) {
-                return static_cast<semanticMoves>(lastMove);
-            }
-        }
+//        pr0(perm, 4);
+//        if (!isstablecell(minx, miny)) {
+//            bool ok = false;
+//            for (int k = 0; k <= 3; k++) {
+//                int unext = currow + dx[perm[k]];
+//                int vnext = curcol + dy[perm[k]];
+//
+//                if (!isstablecell(unext, vnext)) continue;
+//                semanticmoves move = static_cast<semanticmoves>(perm[k]);
+//                if (isthismovevalid(move, nextval)) {
+//                    if (move != lastmove) {
+//                        return move;
+//                    } else {
+//                        ok = true;
+//                    }
+//                }
+//            }
+//            if (ok) {
+//                return static_cast<semanticMoves>(lastMove);
+//            }
+//        }
 
 
         return fromPosition(minX, minY);
     } else {
-        perm = getPerm();
-
-        for (int i = 0; i <= 3; i++) {
-            int uNext = curRow + dX[perm[i]];
-            int vNext = curCol + dY[perm[i]];
-
-            if (!isStableCell(uNext, vNext)) continue;
-
-            semanticMoves move = static_cast<semanticMoves>(perm[i]);
-            if (isThisMoveValid(move, nextVal)) {
-                int distance = abs(uNext - currentDestination.x) + abs(vNext - currentDestination.y);
-                if (distance == minDistance) {
-                    if (move != lastMove) {
-                        return move;
-                    }
-                }
-            }
+//        perm = getPerm();
+//
+//        for (int i = 0; i <= 3; i++) {
+//            int uNext = curRow + dX[perm[i]];
+//            int vNext = curCol + dY[perm[i]];
+//
+//            if (!isStableCell(uNext, vNext)) continue;
+//
+//            semanticMoves move = static_cast<semanticMoves>(perm[i]);
+//            if (isThisMoveValid(move, nextVal)) {
+//                int distance = abs(uNext - currentDestination.x) + abs(vNext - currentDestination.y);
+//                if (distance == minDistance) {
+//                    if (move != lastMove) {
+//                        return move;
+//                    }
+//                }
+//            }
+//        }
+//        return fromPosition(minX, minY);
+        if (minDistance == 10000000) {
+            // no invalid stable 
+        } else {
+            // valid but does not decrease the stable distance
+            return fromPosition(minX, minY);
         }
-        return fromPosition(minX, minY);
     }
 
 }
