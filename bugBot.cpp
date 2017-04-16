@@ -65,15 +65,15 @@ int f[nRows + 5][nColumns + 5];
 
 // variables here
 int sample[12][4] = {{0, 1, 2, 3}, {1, 2, 0, 3}, {2, 1, 0, 3}, {3, 2, 0, 1}, {0, 1, 3, 2},
-                    {0, 2, 1, 3}, {0, 2, 3, 1}, {0, 3, 1, 2}, {0, 3, 2, 1},
-                    {1, 2, 3, 0}, {1, 3, 0, 2}, {3, 0, 1, 2}};
+    {0, 2, 1, 3}, {0, 2, 3, 1}, {0, 3, 1, 2}, {0, 3, 2, 1},
+    {1, 2, 3, 0}, {1, 3, 0, 2}, {3, 0, 1, 2}};
 
 int *getPerm() {
-	srand (time(NULL));
-	int r = rand() % 12;
-	int *perm = sample[r];
+    srand (time(NULL));
+    int r = rand() % 12;
+    int *perm = sample[r];
 
-	return perm;
+    return perm;
 }
 
 void initBoard(){
@@ -94,8 +94,91 @@ void printBoard(){
     }
 }
 
-int distanceBetween(Position p1, Position p2) {
+int manhattanDistance(Position p1, Position p2) {
     return (abs(p1.x - p2.x) + abs(p1.y - p2.y));
+}
+
+int stableDistance(Position inner, Position outter) {
+    // constraint: outter is adjacent to stable area
+    // inner is in stable area
+    // return the minimum path on stable area from inner to outter
+
+
+    q = queue< pair<int, int> >();
+    memset(visited, false, sizeof(visited));
+    //    memset(trace, 0, sizeof(trace));
+    memset(f, 0, sizeof(f));
+
+
+    q.push(make_pair(inner.x, inner.y));
+    visited[inner.x][inner.y] = true;
+    f[inner.x][inner.y] = 0;
+
+    while (!q.empty()) {
+        int u = q.front().first;
+        int v = q.front().second;
+        q.pop();
+
+        for (int i = 0; i <= 3; i++) {
+            int uNext = u + dX[i];
+            int vNext = v + dY[i];
+
+            if (visited[uNext][vNext]) continue;
+            //            if (uNext == uEx && vNext == vEx) continue;
+
+            if (isStableCell(uNext, vNext)) {
+                visited[uNext][vNext] = true;
+                q.push(make_pair(uNext, vNext));    
+                f[uNext][vNext] = f[u][v] + 1;
+            } else {
+                if (isInsideBoard(uNext, vNext)) {
+                    if (uNext == outter.x && vNext == outter.y) {
+                        return f[u][v] + 1;
+                    }
+                }
+            }
+        }
+    }
+
+    return 1000;
+}
+
+void checkReachabilityCurrentDestination() {
+    q = queue< pair<int, int> >();
+    memset(visited, false, sizeof(visited));
+
+
+    q.push(make_pair(curRow, curCol));
+    visited[curRow][curCol] = true;
+
+    while (!q.empty()) {
+        int u = q.front().first;
+        int v = q.front().second;
+        q.pop();
+
+        for (int i = 0; i <= 3; i++) {
+            int uNext = u + dX[i];
+            int vNext = v + dY[i];
+
+            if (visited[uNext][vNext]) continue;
+
+            if (isStableCell(uNext, vNext)) {
+                visited[uNext][vNext] = true;
+                q.push(make_pair(uNext, vNext));    
+            } else {
+                if (isInsideBoard(uNext, vNext)) {
+                    if (uNext == currentDestination.x && vNext == currentDestination.y) {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // not reachable by stable move
+    currentDestination = {-1, -1};
+    exDestination.clear();
+
 }
 
 void printMove(semanticMoves move){
@@ -726,7 +809,7 @@ semanticMoves safeStrategyMove() {
 
     // CASE: distance (myBots, otherBots) == 2
     for (int i = 1; i <= nBots - 1; i++) {
-        int dBot = distanceBetween({curRow, curCol}, currentBotPosition[i]);
+        int dBot = manhattanDistance({curRow, curCol}, currentBotPosition[i]);
         if (dBot <= 2) {
             bool ok = false;
             semanticMoves backup;
@@ -734,11 +817,13 @@ semanticMoves safeStrategyMove() {
                 int xNext = curRow + dX[k];
                 int yNext = curCol + dY[k];
                 semanticMoves move = static_cast<semanticMoves>(k);
-                int d = distanceBetween({xNext, yNext}, currentBotPosition[i]);
+                int d = manhattanDistance({xNext, yNext}, currentBotPosition[i]);
                 if (isThisMoveValid(move, nextVal)) {
                     if (d > dBot) {
                         if (isStableCell(xNext, yNext)) {
 //                            DEBUG("den day doi");
+                            currentDestination = {-1, -1};
+                            exDestination.clear();
                             return move;
                         } else {
                             backup = move;
@@ -747,12 +832,19 @@ semanticMoves safeStrategyMove() {
                 }
 
             }
+            currentDestination = {-1, -1};
+            exDestination.clear();
             return backup;
         }
     }
 
 
     if (board[curRow][curCol] == myStableNumber) {
+        if (currentDestination.x != -1) {
+            checkReachabilityCurrentDestination();
+        }
+
+        // ensure reachable
         if (currentDestination.x != -1) {
             return greedyMove();
         }
