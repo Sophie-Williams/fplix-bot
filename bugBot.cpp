@@ -1,5 +1,5 @@
 
-// v1.2.7
+// v1.2.9
 
 #include <map>
 #include <set>
@@ -31,6 +31,7 @@ struct Position {
 
 const int nRows = 20;
 const int nColumns = 30;
+const int Threshold = 0;
 
 const int dX[4] = {0, -1, 0, 1};
 const int dY[4] = {1, 0, -1, 0};
@@ -91,6 +92,10 @@ void printBoard(){
         }
         cout << endl;
     }
+}
+
+int distanceBetween(Position p1, Position p2) {
+    return (abs(p1.x - p2.x) + abs(p1.y - p2.y));
 }
 
 void printMove(semanticMoves move){
@@ -268,7 +273,7 @@ semanticMoves moveBeforeGoOutTo(int u, int v) {
         int xBot = currentBotPosition[i].x;
         int yBot = currentBotPosition[i].y;
 
-        if (abs(xBot - curRow) + abs(yBot - curCol) <= 4) {
+        if (abs(xBot - curRow) + abs(yBot - curCol) <= 5) {
             exDestination.push_back({u, v});
                        
             return otherStrategyMove();
@@ -282,6 +287,10 @@ semanticMoves moveBeforeGoOutTo(int u, int v) {
 }
 
 semanticMoves greedyMove() {
+    
+    DEBUG(currentDestination.x);
+    DEBUG(currentDestination.y);
+
 
     int minDistance = 10000000;
     int minX = 0;
@@ -452,7 +461,7 @@ semanticMoves otherStrategyMove() {
 
         } else {
             if (haveSecondaryPos) {
-                if (sedDis + 4 < primDis) {
+                if (sedDis + Threshold < primDis) {
                     havePrimaryPos = true;
                     primaryPos = secondaryPos;
                 }
@@ -543,7 +552,7 @@ semanticMoves safeStrategyFromStable() {
             primaryPos = secondaryPos;
         } else {
             if (haveSecondaryPos) {
-                if (sedDis + 4 < primDis) {
+                if (sedDis + Threshold < primDis) {
                     havePrimaryPos = true;
                     primaryPos = secondaryPos;
                 }
@@ -699,22 +708,49 @@ semanticMoves safeStrategyMove() {
     if (lastMove == -1)
         isFirstMove = true;
 
-
     for (int i = 0; i <= 3; i++) {
         int nextRow = curRow + dX[i];
         int nextCol = curCol + dY[i];
         semanticMoves move = static_cast<semanticMoves>(i);
         
-
-
         // (1)
         if (isThisMoveValid(move, nextVal)) {
-            if (isPosOfAnotherBot(nextRow, nextCol) && board[nextRow][nextCol] % 2 == 0) {   
-
+            if (!isPosOfAnotherBot(nextRow, nextCol) && board[nextRow][nextCol] % 2 == 0) {
+                if (board[nextRow][nextCol] == 0) continue;
+                if (nBots > 2) continue;
+                
                 return move;
             }    
         }      
     }
+
+    // CASE: distance (myBots, otherBots) == 2
+    for (int i = 1; i <= nBots - 1; i++) {
+        int dBot = distanceBetween({curRow, curCol}, currentBotPosition[i]);
+        if (dBot <= 2) {
+            bool ok = false;
+            semanticMoves backup;
+            for (int k = 0; k <= 3; k++) {
+                int xNext = curRow + dX[k];
+                int yNext = curCol + dY[k];
+                semanticMoves move = static_cast<semanticMoves>(k);
+                int d = distanceBetween({xNext, yNext}, currentBotPosition[i]);
+                if (isThisMoveValid(move, nextVal)) {
+                    if (d > dBot) {
+                        if (isStableCell(xNext, yNext)) {
+//                            DEBUG("den day doi");
+                            return move;
+                        } else {
+                            backup = move;
+                        }
+                    }
+                }
+
+            }
+            return backup;
+        }
+    }
+
 
     if (board[curRow][curCol] == myStableNumber) {
         if (currentDestination.x != -1) {
@@ -722,6 +758,7 @@ semanticMoves safeStrategyMove() {
         }
         return safeStrategyFromStable();
     } else {
+
         return safeStrategyFromUnstable();
     }
 
@@ -753,7 +790,7 @@ void makeBestMove(){
 
 int main() {
     srand(time(NULL));
-//    freopen("bug.txt", "r", stdin);
+    freopen("bug.txt", "r", stdin);
     int tempRow, tempCol;
     char temp;
 
@@ -798,8 +835,8 @@ int main() {
             }
             // printBoard();
 
-//            lastMove = DOWN;
-//            currentDestination = {11, 13};
+            lastMove = RIGHT;
+//            currentDestination = {4, 22};
 //            exDestination.push_back({8, 13});
             makeBestMove();
 //            DEBUG(exDestination.size());

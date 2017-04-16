@@ -1,0 +1,15 @@
+while (true) {
+            int uu = trace[u][v].x;
+            int vv = trace[u][v].y;
+
+            if (uu == curRow && vv == curCol) {
+                if (u == primaryPos.x && v == primaryPos.y) {
+                    return moveBeforeGoOutTo(u, v);
+                }
+
+                return fromPosition(u, v);
+            }
+
+            u = uu;
+            v = vv;
+        }
