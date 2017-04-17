@@ -66,7 +66,7 @@ semanticMoves greedyMove();
 
 
 semanticMoves attack();
-semanticMoves runStrategyFromStable();
+semanticMoves runStrategyFromStable(bool isDangerous);
 semanticMoves stableNavigate();
 Position findDest(int x, int y, int& value);
 
@@ -654,7 +654,7 @@ int emptyCellsDistance(Position start, Position traceToHome[nRows + 5][nColumns 
 
             if (visited[uNext][vNext]) continue;
             if (!isInsideBoard(uNext, vNext)) continue;
-            if (distanceToStable(uNext, vNext) + f[u][v] >= distanceToAnotherBot(uNext, vNext) + HomeThresHold) continue;
+            if (distanceToStable(uNext, vNext) + f[u][v] >= distanceToAnotherBot(uNext, vNext)) continue;
 
             if (board[uNext][vNext] != myUnstableNumber) {
                 visited[uNext][vNext] = true;
@@ -915,7 +915,7 @@ void makeBestMove(){
     printMove(realMove);
 }
 
-Position findDest(int x, int y, int& value) {
+Position findDest(int x, int y, int& value, bool isDangerous) {
     // reset q and visited
     q = queue< pair<int, int> >();
     memset(visited, false, sizeof(visited));
@@ -926,7 +926,11 @@ Position findDest(int x, int y, int& value) {
     f[x][y] = 0;
 
     int res = -oo;
-    Position resPos; 
+    int maxDisToOtherBot = -oo;
+    Position resPos;
+    Position resPos2;
+
+
 
     while (!q.empty()) {
         int u = q.front().first;
@@ -937,7 +941,11 @@ Position findDest(int x, int y, int& value) {
             int uNext = u + dX[i];
             int vNext = v + dY[i];
 
+//            DEBUG(uNext);
+//            DEBUG(vNext);
+
             // NOTE
+            if (!isInsideBoard(uNext, vNext)) continue;
             semanticMoves move = static_cast<semanticMoves>(i);
 
             if (visited[uNext][vNext]) continue;
@@ -954,27 +962,50 @@ Position findDest(int x, int y, int& value) {
                         res = disToOtherBot - (f[u][v] + 1);
                         resPos = {uNext, vNext};
                     }
-                    
+
+                    if (disToOtherBot > maxDisToOtherBot) {
+                        maxDisToOtherBot = disToOtherBot;
+                        resPos2 = {uNext, vNext};
+                    }
+
                 }
             }
         }
     }
 
+//    cout << "find dest" << endl;
+
+
+//    DEBUG(res);
+//    DEBUG(resPos.x);
+//    DEBUG(resPos.y);
+    
+    if (isDangerous) {
+        value = maxDisToOtherBot;
+        return resPos2;
+    }
     value = res;
     return resPos;
 }
 
 semanticMoves stableNavigate() {
 
+//    DEBUG(currentDestination.x);
+//    DEBUG(currentDestination.y);
+    
+
     int res = oo;
     semanticMoves minMove;
     int nextVal;
+    int resX, resY;
+
+    perm = getPerm();
 
     for (int i = 0; i < 4; i++) {
-        int uNext = curRow + dX[i];
-        int vNext = curCol + dY[i];
+        int uNext = curRow + dX[perm[i]];
+        int vNext = curCol + dY[perm[i]];
 
-        semanticMoves move = static_cast<semanticMoves>(i);
+        semanticMoves move = static_cast<semanticMoves>(perm[i]);
             
         if (isStableCell(uNext, vNext) && isThisMoveValid(move, nextVal)) {
             int disToDest = matDis({uNext, vNext}, currentDestination);
@@ -982,19 +1013,42 @@ semanticMoves stableNavigate() {
             if (disToDest < res) {
                 res = disToDest;
                 minMove = move;
+                resX = uNext;
+                resY = vNext;
+            }
+        } else 
+        if (!isStableCell(uNext, vNext) && isThisMoveValid(move, nextVal)) {
+            if (uNext == currentDestination.x && vNext == currentDestination.y) {
+                res = 0;
+                minMove = move;
+                resX = uNext;
+                resY = vNext;
             }
         }
     }   
 
-    if (res != oo) {
+//    DEBUG(res);
+//    DEBUG(minMove);
+//    DEBUG(resX);
+//    DEBUG(resY);
+    
+//    DEBUG(currentDestination.x);
+//    DEBUG(currentDestination.y);
+
+    if (res == oo) {
+
         int res2 = oo;
         semanticMoves minMove2;
+        int minX, minY;
+
+    
+        perm = getPerm();
 
         for (int i = 0; i < 4; i++) {
-            int uNext = curRow + dX[i];
-            int vNext = curCol + dY[i];
+            int uNext = curRow + dX[perm[i]];
+            int vNext = curCol + dY[perm[i]];
 
-            semanticMoves move = static_cast<semanticMoves>(i);
+            semanticMoves move = static_cast<semanticMoves>(perm[i]);
 
             if (isThisMoveValid(move, nextVal)) {
                 int disToDest = matDis({uNext, vNext}, currentDestination);
@@ -1002,21 +1056,41 @@ semanticMoves stableNavigate() {
                 if (disToDest < res2) {
                     res2 = disToDest;
                     minMove2 = move;
+                    minX = uNext;
+                    minY = vNext;
                 }
             }
         }  
+        
+        if (minX == currentDestination.x && minY == currentDestination.y) {
+            if (distanceToAnotherBot(minX, minY) <= 5) {
+                return runStrategyFromStable(true);
+            }
+        }
+        
         return minMove2;
     } else {
+        
+        if (resX == currentDestination.x && resY == currentDestination.y) {
+            if (distanceToAnotherBot(resX, resY) <= 5) {
+//                cout << "den day roi" << endl;
+                return runStrategyFromStable(true);
+            }
+        }
+//        cout << "dddd" << endl;
+//        DEBUG(minMove);
+
         return minMove;
     }
 
 }
 
-semanticMoves runStrategyFromStable() {
+semanticMoves runStrategyFromStable(bool isDangerous) {
 
     int nextVal;
     int res = -oo;
     Position resPos;
+    currentDestination = {-1, -1};
 
 
     for (int i = 0; i < 4; i++) {
@@ -1026,7 +1100,8 @@ semanticMoves runStrategyFromStable() {
 
         if (isStableCell(uNext, vNext) && isThisMoveValid(move, nextVal)) {
             int value;
-            Position dest = findDest(uNext, vNext, value);
+//            DEBUG(i);
+            Position dest = findDest(uNext, vNext, value, isDangerous);
 
             if (value > res) {
                 res = value;
@@ -1036,9 +1111,34 @@ semanticMoves runStrategyFromStable() {
         }
     }
 
-    currentDestination = resPos;
+    if (res == -oo) {
+        int res2 = -oo;
+        semanticMoves resMove;
+        for (int i = 0; i < 4; i++) {
+            int uNext = curRow + dX[i];
+            int vNext = curCol + dY[i];
+            semanticMoves move = static_cast<semanticMoves>(i);
 
-    stableNavigate();
+            if (isThisMoveValid(move, nextVal)) {
+                int value = distanceToAnotherBot(uNext, vNext);
+                if (value > res2) {
+                    res2 = value;
+                    resMove = move;
+                }
+
+            }
+
+        }
+        return resMove;
+    }
+
+
+
+    currentDestination = resPos;
+//    DEBUG(currentDestination.x);
+//    DEBUG(currentDestination.y);
+
+    return stableNavigate();
 
 }
 
@@ -1069,7 +1169,11 @@ semanticMoves attack() {
         if (currentDestination.x != -1) {
             return stableNavigate();
         }
-        return runStrategyFromStable();
+        if (distanceToAnotherBot(curRow, curCol) <= 5)  {
+//            cout << "den day roi" << endl;
+            return runStrategyFromStable(true);
+        }
+        return runStrategyFromStable(false);
     } else {
         return safeStrategyFromUnstable();
     }
@@ -1083,7 +1187,7 @@ int main() {
     isDesToHome = false;
 
     srand(time(NULL));
-       // freopen("bug.txt", "r", stdin);
+//    freopen("bug.txt", "r", stdin);
     int tempRow, tempCol;
     char temp;
 
@@ -1128,8 +1232,8 @@ int main() {
             }
             // printBoard();
 
-           // lastMove = DOWN;
-//            currentDestination = {11, 13};
+//            lastMove = LEFT;
+//            currentDestination = {1, 18};
 //            exDestination.push_back({8, 13});
             makeBestMove();
 //            DEBUG(exDestination.size());
